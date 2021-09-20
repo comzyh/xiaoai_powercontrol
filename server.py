@@ -78,11 +78,10 @@ async def suspend_pc(host, key, state='Suspend'):
 
 async def start_server(api, mac_address: str, broadcast_ip: str):
     async for message in api.connect():
-        print(message)
         if 'msg' in message and message['msg'][0] == 'on':
             send_wake_on_lan_packet(mac_address, broadcast_ip)
         if 'msg' in message and message['msg'][0] == 'off':
-            suspend_pc(mac_address, broadcast_ip)
+            await suspend_pc(mac_address, broadcast_ip)
 
 
 def main():
