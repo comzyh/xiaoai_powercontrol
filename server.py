@@ -67,7 +67,7 @@ async def suspend_pc(host, key, state='Suspend'):
         state=state)
     args = ['-i', key, host, 'powershell', command]
     proc = await asyncio.create_subprocess_exec(
-        'ssh', args,
+        'ssh', *args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE)
 
