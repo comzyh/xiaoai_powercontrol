@@ -62,8 +62,8 @@ def send_wake_on_lan_packet(ethernet_address, broadcast_ip, wol_port=9):
     s.close()
 
 
-async def suspend_pc(host, key, action):
-    command = "Add-Type -AssemblyName System.Windows.Forms;$PowerState = [System.Windows.Forms.PowerState]::Suspend;[System.Windows.Forms.Application]::SetSuspendState($PowerState, $false, $false);"
+async def suspend_pc(host, key, state='Suspend'):
+    command = "Add-Type -AssemblyName System.Windows.Forms;$PowerState = [System.Windows.Forms.PowerState]::{state};[System.Windows.Forms.Application]::SetSuspendState($PowerState, $false, $false);".format(state=state)
     args = ['-i', key, host, 'powershell', command]
     proc = await asyncio.create_subprocess_exec(
         'ssh', args,
