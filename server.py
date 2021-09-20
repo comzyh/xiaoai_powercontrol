@@ -46,7 +46,7 @@ class bemfaTcpAPI:
             await asyncio.sleep(self.keep_alive_interval)
 
 
-def send_wake_on_lan_packet(ethernet_address, broadcast_ip='192.168.255.255', wol_port=9):
+def send_wake_on_lan_packet(ethernet_address, broadcast_ip, wol_port=9):
     ethernet_address = ethernet_address.replace('-', '').replace(':', '')
     ethernet_address = bytes.fromhex(ethernet_address)
 
@@ -62,11 +62,11 @@ def send_wake_on_lan_packet(ethernet_address, broadcast_ip='192.168.255.255', wo
     s.close()
 
 
-async def start_server(api, mac_address: str):
+async def start_server(api, mac_address: str, broadcast_ip: str):
     async for message in api.connect():
         print(message)
         if 'msg' in message and message['msg'][0] == 'on':
-            send_wake_on_lan_packet(mac_address)
+            send_wake_on_lan_packet(mac_address, broadcast_ip)
 
 
 def main():
@@ -74,13 +74,14 @@ def main():
     parser.add_argument('--api-key', type=str, required=True, help='the bemfa api key')
     parser.add_argument('--topic', type=str, required=True, help='the bemfa topic')
     parser.add_argument('--mac', type=str, required=True, help='the mac address of your network card to wake up')
+    parser.add_argument('--broadcast', type=str, required=True, help='the broadcast ip of your network')
     args = parser.parse_args()
 
     api = bemfaTcpAPI('bemfa.com', '8344', args.api_key, args.topic)
 
     logging.basicConfig(level=logging.INFO)
 
-    asyncio.run(start_server(api, mac_address=args.mac))
+    asyncio.run(start_server(api, mac_address=args.mac, broadcast_ip=args.broadcast))
 
 
 if __name__ == '__main__':
