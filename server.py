@@ -62,11 +62,26 @@ def send_wake_on_lan_packet(ethernet_address, broadcast_ip, wol_port=9):
     s.close()
 
 
-async def start_server(api, mac_address: str, broadcast_ip: str):
+async def suspend_pc(host, key, state='Suspend'):
+    command = "Add-Type -AssemblyName System.Windows.Forms;$PowerState = [System.Windows.Forms.PowerState]::{state};[System.Windows.Forms.Application]::SetSuspendState($PowerState, $false, $false);".format(
+        state=state)
+    args = ['-i', key, host, 'powershell', command]
+    proc = await asyncio.create_subprocess_exec(
+        'ssh', *args,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE)
+
+    stdout, stderr = await proc.communicate()
+    logging.info("Suspend: stdout: %s", stdout)
+    logging.info("Suspend: stderr: %s", stderr)
+
+
+async def start_server(api, mac_address: str, broadcast_ip: str, host: str, key_file: str):
     async for message in api.connect():
-        print(message)
         if 'msg' in message and message['msg'][0] == 'on':
             send_wake_on_lan_packet(mac_address, broadcast_ip)
+        if 'msg' in message and message['msg'][0] == 'off':
+            await suspend_pc(host, key_file)
 
 
 def main():
@@ -75,13 +90,16 @@ def main():
     parser.add_argument('--topic', type=str, required=True, help='the bemfa topic')
     parser.add_argument('--mac', type=str, required=True, help='the mac address of your network card to wake up')
     parser.add_argument('--broadcast', type=str, required=True, help='the broadcast ip of your network')
+    parser.add_argument('--host', type=str, required=True, help='the host of your computer you want to suspend')
+    parser.add_argument('--key', type=str, required=True, help='ssh-key for the host')
+
     args = parser.parse_args()
 
     api = bemfaTcpAPI('bemfa.com', '8344', args.api_key, args.topic)
 
     logging.basicConfig(level=logging.INFO)
 
-    asyncio.run(start_server(api, mac_address=args.mac, broadcast_ip=args.broadcast))
+    asyncio.run(start_server(api, mac_address=args.mac, broadcast_ip=args.broadcast, host=args.host, key_file=args.key))
 
 
 if __name__ == '__main__':
