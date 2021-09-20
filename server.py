@@ -53,7 +53,7 @@ def send_wake_on_lan_packet(ethernet_address, broadcast_ip, wol_port=9):
     assert(len(ethernet_address) == 6)
 
     # Build magic packet
-    msg = b'\xff' * 6 + ethernet_address
+    msg = b'\xff' * 6 + ethernet_address * 16
 
     # Send packet to broadcast address using UDP port 9
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
