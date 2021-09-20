@@ -76,12 +76,12 @@ async def suspend_pc(host, key, state='Suspend'):
     logging.info("Suspend: stderr: %s", stderr)
 
 
-async def start_server(api, mac_address: str, broadcast_ip: str):
+async def start_server(api, mac_address: str, broadcast_ip: str, host: str, key_file: str):
     async for message in api.connect():
         if 'msg' in message and message['msg'][0] == 'on':
             send_wake_on_lan_packet(mac_address, broadcast_ip)
         if 'msg' in message and message['msg'][0] == 'off':
-            await suspend_pc(mac_address, broadcast_ip)
+            await suspend_pc(host, key_file)
 
 
 def main():
@@ -99,7 +99,7 @@ def main():
 
     logging.basicConfig(level=logging.INFO)
 
-    asyncio.run(start_server(api, mac_address=args.mac, broadcast_ip=args.broadcast))
+    asyncio.run(start_server(api, mac_address=args.mac, broadcast_ip=args.broadcast, host=args.host, key_file=args.key))
 
 
 if __name__ == '__main__':
