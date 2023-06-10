@@ -5,34 +5,53 @@ import asyncio
 import logging
 import socket
 import urllib.parse
-from typing import Dict
+from typing import AsyncGenerator, Optional
+
+LOGGER = logging.getLogger('xiaoai_power_control')
 
 
 class bemfaTcpAPI:
 
     def __init__(self, host: str, port: int, api_key: str, topic: str, keep_alive_interval=60):
-        self.host = host
-        self.port = port
+        self.host: str = host
+        self.port: int = port
         self.api_key = api_key
         self.topic = topic
         self.keep_alive_interval = keep_alive_interval
 
-        self.reader = None
-        self.writer = None
-        self.keepalive_task = None
+        self.reader: Optional[asyncio.StreamReader] = None
+        self.writer: Optional[asyncio.StreamWriter] = None
+        self.keepalive_task: Optional[asyncio.Task[None]] = None
 
-    async def connect(self):
+    async def connect(self) -> AsyncGenerator[dict[str, list[str]], None]:
+        while True:
+            try:
+                async for msg in self._connect():
+                    yield msg
+            except OSError:
+                LOGGER.exception("Connection error")
+                if self.keepalive_task:
+                    self.keepalive_task.cancel()
+                await asyncio.sleep(60)
+                continue
+            except Exception:
+                LOGGER.exception("Unknown error")
+                if self.keepalive_task:
+                    self.keepalive_task.cancel()
+                break
+
+    async def _connect(self) -> AsyncGenerator[dict[str, list[str]], None]:
 
         self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
         message = "cmd=1&uid={uid}&topic={topic}\r\n".format(uid=self.api_key, topic=self.topic)
         self.writer.write(message.encode())
         self.keepalive_task = asyncio.create_task(self.keepalive())
         while True:
-            line = await self.reader.readline()
-            if not line:
+            line_bytes = await self.reader.readline()
+            if not line_bytes:
                 break
-            line = line.decode().strip()
-            logging.info("Message incoming: %s", line)
+            line = line_bytes.decode().strip()
+            LOGGER.info("Message incoming: %s", line)
             qs = urllib.parse.parse_qs(line)
             if qs['cmd'][0] == '0':  # ping echo reply
                 continue
@@ -72,8 +91,8 @@ async def suspend_pc(host, key, state='Suspend'):
         stderr=asyncio.subprocess.PIPE)
 
     stdout, stderr = await proc.communicate()
-    logging.info("Suspend: stdout: %s", stdout)
-    logging.info("Suspend: stderr: %s", stderr)
+    LOGGER.info("Suspend: stdout: %s", stdout)
+    LOGGER.info("Suspend: stderr: %s", stderr)
 
 
 async def start_server(api, mac_address: str, broadcast_ip: str, host: str, key_file: str):
@@ -95,9 +114,14 @@ def main():
 
     args = parser.parse_args()
 
-    api = bemfaTcpAPI('bemfa.com', '8344', args.api_key, args.topic)
+    api = bemfaTcpAPI('bemfa.com', 8344, args.api_key, args.topic)
 
-    logging.basicConfig(level=logging.INFO)
+    # config logging
+    LOGGER.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    LOGGER.addHandler(handler)
 
     asyncio.run(start_server(api, mac_address=args.mac, broadcast_ip=args.broadcast, host=args.host, key_file=args.key))
 
